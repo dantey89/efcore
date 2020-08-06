@@ -2599,13 +2599,13 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
         /// </summary>
         public virtual InternalForeignKeyBuilder HasRelationship(
             [NotNull] EntityType targetEntityType,
-            [CanBeNull] string navigationToTargetName,
+            [CanBeNull] string navigationName,
             [CanBeNull] string inverseNavigationName,
             ConfigurationSource configurationSource,
             bool setTargetAsPrincipal = false)
             => HasRelationship(
                 Check.NotNull(targetEntityType, nameof(targetEntityType)),
-                MemberIdentity.Create(navigationToTargetName),
+                MemberIdentity.Create(navigationName),
                 MemberIdentity.Create(inverseNavigationName),
                 setTargetAsPrincipal ? true : (bool?)null,
                 configurationSource);
@@ -2618,34 +2618,34 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
         /// </summary>
         public virtual InternalForeignKeyBuilder HasRelationship(
             [NotNull] EntityType targetEntityType,
-            [CanBeNull] MemberInfo navigationToTarget,
+            [CanBeNull] MemberInfo navigation,
             [CanBeNull] MemberInfo inverseNavigation,
             ConfigurationSource configurationSource,
             bool setTargetAsPrincipal = false)
             => HasRelationship(
                 Check.NotNull(targetEntityType, nameof(targetEntityType)),
-                MemberIdentity.Create(navigationToTarget),
+                MemberIdentity.Create(navigation),
                 MemberIdentity.Create(inverseNavigation),
                 setTargetAsPrincipal ? true : (bool?)null,
                 configurationSource);
 
         private InternalForeignKeyBuilder HasRelationship(
             EntityType targetEntityType,
-            MemberIdentity? navigationToTarget,
+            MemberIdentity? navigation,
             MemberIdentity? inverseNavigation,
             bool? setTargetAsPrincipal,
             ConfigurationSource configurationSource,
             bool? required = null)
         {
             Check.DebugAssert(
-                navigationToTarget != null || inverseNavigation != null,
-                "navigationToTarget == null and inverseNavigation == null");
+                navigation != null || inverseNavigation != null,
+                "navigation == null and inverseNavigation == null");
 
             Check.DebugAssert(
                 setTargetAsPrincipal != null || required == null,
                 "required should only be set if principal end is known");
 
-            var navigationProperty = navigationToTarget?.MemberInfo;
+            var navigationProperty = navigation?.MemberInfo;
             if (setTargetAsPrincipal == false
                 || (inverseNavigation == null
                     && navigationProperty?.GetMemberType().IsAssignableFrom(
@@ -2653,13 +2653,13 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
             {
                 // Target is expected to be dependent or only one nav specified and it can't be the nav to principal
                 return targetEntityType.Builder.HasRelationship(
-                    Metadata, null, navigationToTarget, !setTargetAsPrincipal, configurationSource, required);
+                    Metadata, null, navigation, !setTargetAsPrincipal, configurationSource, required);
             }
 
             var existingRelationship = InternalForeignKeyBuilder.FindCurrentForeignKeyBuilder(
                 targetEntityType,
                 Metadata,
-                navigationToTarget,
+                navigation,
                 inverseNavigation,
                 dependentProperties: null,
                 principalProperties: null);
@@ -2669,9 +2669,9 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
                 // The dependent and principal sides could be in the same hierarchy so we need to use the navigations to determine
                 // the expected principal side.
                 // And since both sides are in the same hierarchy different navigations must have different names.
-                if (navigationToTarget != null)
+                if (navigation != null)
                 {
-                    if (navigationToTarget.Value.Name == existingRelationship.Metadata.DependentToPrincipal?.Name)
+                    if (navigation.Value.Name == existingRelationship.Metadata.DependentToPrincipal?.Name)
                     {
                         existingRelationship.Metadata.UpdateDependentToPrincipalConfigurationSource(configurationSource);
                     }
@@ -2684,9 +2684,9 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
                         existingRelationship.Metadata.UpdatePrincipalToDependentConfigurationSource(configurationSource);
                     }
 
-                    if (navigationToTarget.Value.Name != null)
+                    if (navigation.Value.Name != null)
                     {
-                        Metadata.RemoveIgnored(navigationToTarget.Value.Name);
+                        Metadata.RemoveIgnored(navigation.Value.Name);
                     }
                 }
 
@@ -2739,22 +2739,22 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
                     Metadata,
                     targetEntityType,
                     inverseNavigation,
-                    navigationToTarget,
+                    navigation,
                     dependentProperties: null,
                     principalProperties: null);
                 if (existingRelationship != null)
                 {
                     // Since the existing relationship didn't match the first case then the dependent and principal sides
                     // are not in the same hierarchy therefore we don't need to check existing navigations
-                    if (navigationToTarget != null)
+                    if (navigation != null)
                     {
-                        Check.DebugAssert(navigationToTarget.Value.Name == existingRelationship.Metadata.PrincipalToDependent?.Name,
-                            $"Expected {navigationToTarget.Value.Name}, found {existingRelationship.Metadata.PrincipalToDependent?.Name}");
+                        Check.DebugAssert(navigation.Value.Name == existingRelationship.Metadata.PrincipalToDependent?.Name,
+                            $"Expected {navigation.Value.Name}, found {existingRelationship.Metadata.PrincipalToDependent?.Name}");
 
                         existingRelationship.Metadata.UpdatePrincipalToDependentConfigurationSource(configurationSource);
-                        if (navigationToTarget.Value.Name != null)
+                        if (navigation.Value.Name != null)
                         {
-                            Metadata.RemoveIgnored(navigationToTarget.Value.Name);
+                            Metadata.RemoveIgnored(navigation.Value.Name);
                         }
                     }
 
@@ -2802,9 +2802,9 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
                     }
                     else
                     {
-                        var navigation = navigationToTarget;
+                        var navigationToTarget = navigation;
                         navigationToTarget = inverseNavigation;
-                        inverseNavigation = navigation;
+                        inverseNavigation = navigationToTarget;
 
                         navigationProperty = navigationToTarget?.MemberInfo;
 
@@ -2840,11 +2840,11 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
                             pointsToPrincipal: true,
                             configurationSource)
                         : relationship.HasNavigation(
-                            navigationToTarget.Value.Name,
+                            navigation.Value.Name,
                             pointsToPrincipal: true,
                             configurationSource);
                 }
-                else if (navigationToTarget == null)
+                else if (navigation == null)
                 {
                     relationship = inverseProperty != null
                         ? relationship.HasNavigation(
@@ -2860,7 +2860,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
                 {
                     relationship = navigationProperty != null || inverseProperty != null
                         ? relationship.HasNavigations(navigationProperty, inverseProperty, configurationSource)
-                        : relationship.HasNavigations(navigationToTarget.Value.Name, inverseNavigation.Value.Name, configurationSource);
+                        : relationship.HasNavigations(navigation.Value.Name, inverseNavigation.Value.Name, configurationSource);
                 }
 
                 if (relationship != null)
@@ -2870,14 +2870,14 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
             }
 
             if (relationship != null
-                && ((navigationToTarget != null
-                        && relationship.Metadata.DependentToPrincipal?.Name != navigationToTarget.Value.Name)
+                && ((navigation != null
+                        && relationship.Metadata.DependentToPrincipal?.Name != navigation.Value.Name)
                     || (inverseNavigation != null
                         && relationship.Metadata.PrincipalToDependent?.Name != inverseNavigation.Value.Name))
                 && ((inverseNavigation != null
                         && relationship.Metadata.DependentToPrincipal?.Name != inverseNavigation.Value.Name)
-                    || (navigationToTarget != null
-                        && relationship.Metadata.PrincipalToDependent?.Name != navigationToTarget.Value.Name)))
+                    || (navigation != null
+                        && relationship.Metadata.PrincipalToDependent?.Name != navigation.Value.Name)))
             {
                 relationship = null;
             }
@@ -3222,7 +3222,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
 
                 relationship = ownedEntityType.HasRelationship(
                     targetEntityType: principalBuilder.Metadata,
-                    navigationToTarget: inverse,
+                    navigation: inverse,
                     inverseNavigation: navigation,
                     setTargetAsPrincipal: true,
                     configurationSource,
@@ -3563,7 +3563,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public virtual InternalSkipNavigationBuilder HasSkipNavigation(
-            MemberIdentity navigationToTarget,
+            MemberIdentity navigation,
             [NotNull] EntityType targetEntityType,
             MemberIdentity inverseNavigation,
             ConfigurationSource configurationSource,
@@ -3571,7 +3571,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
             bool? onDependent = null)
         {
             var skipNavigationBuilder = HasSkipNavigation(
-                navigationToTarget, targetEntityType, configurationSource, collections, onDependent);
+                navigation, targetEntityType, configurationSource, collections, onDependent);
             if (skipNavigationBuilder == null)
             {
                 return null;
@@ -4720,10 +4720,10 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
         /// </summary>
         [DebuggerStepThrough]
         IConventionForeignKeyBuilder IConventionEntityTypeBuilder.HasRelationship(
-            IConventionEntityType targetEntityType, string navigationToTargetName, bool setTargetAsPrincipal, bool fromDataAnnotation)
+            IConventionEntityType targetEntityType, string navigationName, bool setTargetAsPrincipal, bool fromDataAnnotation)
             => HasRelationship(
                 (EntityType)targetEntityType,
-                navigationToTargetName,
+                navigationName,
                 fromDataAnnotation ? ConfigurationSource.DataAnnotation : ConfigurationSource.Convention,
                 setTargetAsPrincipal ? true : (bool?)null);
 
@@ -4735,10 +4735,10 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
         /// </summary>
         [DebuggerStepThrough]
         IConventionForeignKeyBuilder IConventionEntityTypeBuilder.HasRelationship(
-            IConventionEntityType targetEntityType, MemberInfo navigationToTarget, bool setTargetAsPrincipal, bool fromDataAnnotation)
+            IConventionEntityType targetEntityType, MemberInfo navigation, bool setTargetAsPrincipal, bool fromDataAnnotation)
             => HasRelationship(
                 (EntityType)targetEntityType,
-                navigationToTarget,
+                navigation,
                 fromDataAnnotation ? ConfigurationSource.DataAnnotation : ConfigurationSource.Convention,
                 setTargetAsPrincipal ? true : (bool?)null);
 
@@ -4751,13 +4751,13 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
         [DebuggerStepThrough]
         IConventionForeignKeyBuilder IConventionEntityTypeBuilder.HasRelationship(
             IConventionEntityType targetEntityType,
-            string navigationToTargetName,
+            string navigationName,
             string inverseNavigationName,
             bool setTargetAsPrincipal,
             bool fromDataAnnotation)
             => HasRelationship(
                 (EntityType)targetEntityType,
-                navigationToTargetName, inverseNavigationName,
+                navigationName, inverseNavigationName,
                 fromDataAnnotation ? ConfigurationSource.DataAnnotation : ConfigurationSource.Convention,
                 setTargetAsPrincipal);
 
@@ -4770,27 +4770,27 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
         [DebuggerStepThrough]
         IConventionForeignKeyBuilder IConventionEntityTypeBuilder.HasRelationship(
             IConventionEntityType targetEntityType,
-            MemberInfo navigationToTarget,
+            MemberInfo navigation,
             MemberInfo inverseNavigation,
             bool setTargetAsPrincipal,
             bool fromDataAnnotation)
             => HasRelationship(
                 (EntityType)targetEntityType,
-                navigationToTarget, inverseNavigation,
+                navigation, inverseNavigation,
                 fromDataAnnotation ? ConfigurationSource.DataAnnotation : ConfigurationSource.Convention,
                 setTargetAsPrincipal);
 
         /// <inheritdoc />
         [DebuggerStepThrough]
         IConventionSkipNavigationBuilder IConventionEntityTypeBuilder.HasSkipNavigation(
-            MemberInfo navigationToTarget,
+            MemberInfo navigation,
             IConventionEntityType targetEntityType,
             MemberInfo inverseNavigation,
             bool? collections,
             bool? onDependent,
             bool fromDataAnnotation)
             => HasSkipNavigation(
-                MemberIdentity.Create(navigationToTarget),
+                MemberIdentity.Create(navigation),
                 (EntityType)targetEntityType,
                 MemberIdentity.Create(inverseNavigation),
                 fromDataAnnotation ? ConfigurationSource.DataAnnotation : ConfigurationSource.Convention,
@@ -4805,9 +4805,9 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
         /// </summary>
         [DebuggerStepThrough]
         IConventionForeignKeyBuilder IConventionEntityTypeBuilder.HasOwnership(
-            Type targetEntityType, string navigationToTargetName, bool fromDataAnnotation)
+            Type targetEntityType, string navigationName, bool fromDataAnnotation)
             => HasOwnership(
-                targetEntityType, navigationToTargetName,
+                targetEntityType, navigationName,
                 fromDataAnnotation ? ConfigurationSource.DataAnnotation : ConfigurationSource.Convention);
 
         /// <summary>
@@ -4818,9 +4818,9 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
         /// </summary>
         [DebuggerStepThrough]
         IConventionForeignKeyBuilder IConventionEntityTypeBuilder.HasOwnership(
-            Type targetEntityType, MemberInfo navigationToTarget, bool fromDataAnnotation)
+            Type targetEntityType, MemberInfo navigation, bool fromDataAnnotation)
             => HasOwnership(
-                targetEntityType, navigationToTarget,
+                targetEntityType, navigation,
                 fromDataAnnotation ? ConfigurationSource.DataAnnotation : ConfigurationSource.Convention);
 
         /// <summary>
@@ -4831,9 +4831,9 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
         /// </summary>
         [DebuggerStepThrough]
         IConventionForeignKeyBuilder IConventionEntityTypeBuilder.HasOwnership(
-            Type targetEntityType, string navigationToTargetName, string inversePropertyName, bool fromDataAnnotation)
+            Type targetEntityType, string navigationName, string inversePropertyName, bool fromDataAnnotation)
             => HasOwnership(
-                targetEntityType, navigationToTargetName, inversePropertyName,
+                targetEntityType, navigationName, inversePropertyName,
                 fromDataAnnotation ? ConfigurationSource.DataAnnotation : ConfigurationSource.Convention);
 
         /// <summary>
@@ -4844,9 +4844,9 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
         /// </summary>
         [DebuggerStepThrough]
         IConventionForeignKeyBuilder IConventionEntityTypeBuilder.HasOwnership(
-            Type targetEntityType, MemberInfo navigationToTarget, MemberInfo inverseProperty, bool fromDataAnnotation)
+            Type targetEntityType, MemberInfo navigation, MemberInfo inverseProperty, bool fromDataAnnotation)
             => HasOwnership(
-                targetEntityType, navigationToTarget, inverseProperty,
+                targetEntityType, navigation, inverseProperty,
                 fromDataAnnotation ? ConfigurationSource.DataAnnotation : ConfigurationSource.Convention);
 
         /// <summary>
@@ -4923,13 +4923,13 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
         /// <inheritdoc />
         [DebuggerStepThrough]
         IConventionSkipNavigationBuilder IConventionEntityTypeBuilder.HasSkipNavigation(
-            MemberInfo navigationToTarget,
+            MemberInfo navigation,
             IConventionEntityType targetEntityType,
             bool? collection,
             bool? onDependent,
             bool fromDataAnnotation)
             => HasSkipNavigation(
-                MemberIdentity.Create(navigationToTarget),
+                MemberIdentity.Create(navigation),
                 (EntityType)targetEntityType,
                 fromDataAnnotation ? ConfigurationSource.DataAnnotation : ConfigurationSource.Convention,
                 collection,

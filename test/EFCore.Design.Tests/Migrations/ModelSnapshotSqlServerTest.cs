@@ -433,7 +433,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 builder =>
                 {
                     builder.Entity<DerivedEntity>()
-                        .ToTable("DerivedEntity", "foo", t => t.IsExcludedFromMigrations());
+                        .ToTable("DerivedEntity", "foo", t => t.ExcludeFromMigrations());
                     builder.Entity<BaseEntity>();
                 },
                 AddBoilerPlate(
